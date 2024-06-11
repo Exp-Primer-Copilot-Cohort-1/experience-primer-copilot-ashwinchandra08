@@ -1,53 +1,58 @@
-// Create a web server
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const url = require('url');
-const queryString = require('querystring');
+// Create web server 
 
-const comments = [];
+var http = require('http');
+var fs = require('fs');
+var url = require('url');
+var querystring = require('querystring');
 
-const server = http.createServer((req, res) => {
-  // Parse the URL
-  const urlObj = url.parse(req.url, true);
-  console.log(urlObj);
+// Configure our HTTP server to respond with Hello World to all requests
+var server = http.createServer(function (request, response) {
+  var path = url.parse(request.url).pathname;
+  var query = url.parse(request.url).query;
+  console.log("Request for " + path + " received.");
 
-  // Get the path name
-  const pathName = urlObj.pathname;
-
-  // If the request is for the home page
-  if (pathName === '/') {
-    // Read the home page file
-    fs.readFile(path.join(__dirname, 'index.html'), (err, data) => {
+  // Get the form for posting comments
+  if (path == "/") {
+    fs.readFile("post.html", function(err, data) {
       if (err) {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end('Internal Server Error');
+        response.writeHead(404, {"Content-Type": "text/html"});
+        response.end("404 Not Found");
       } else {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(data);
+        response.writeHead(200, {"Content-Type": "text/html"});
+        response.end(data);
       }
     });
-  } else if (pathName === '/comments') {
-    if (req.method === 'GET') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(comments));
-    } else if (req.method === 'POST') {
-      let postData = '';
-      req.on('data', (chunk) => {
-        postData += chunk;
+  }
+
+  // Post the comment
+  if (path == "/post") {
+    var postData = "";
+    request.on('data', function(data) {
+      postData += data;
+    });
+    request.on('end', function() {
+      var postQuery = querystring.parse(postData);
+      var postText = postQuery.text;
+      var postName = postQuery.name;
+      var postEmail = postQuery.email;
+      var postDate = new Date();
+      var postTime = postDate.getTime();
+      var postDateTime = postDate.toDateString() + " " + postDate.toTimeString();
+      fs.appendFile("comments.txt", postTime + ";" + postName + ";" + postEmail + ";" + postText + "\n", function(err) {
+        if (err) {
+          response.writeHead(404, {"Content-Type": "text/html"});
+          response.end("404 Not Found");
+        } else {
+          response.writeHead(200, {"Content-Type": "text/html"});
+          response.end(postDateTime + "<br>" + postName + "<br>" + postEmail + "<br>" + postText);
+        }
       });
-      req.on('end', () => {
-        const comment = queryString.parse(postData);
-        comments.push(comment);
-        res.end('Comment added');
+    });
+  }
+
+  // Get the list of comments
+  if (path == "/list") {
+      fs.readFile("comments.txt", function(err, data) {
       });
     }
-  } else {
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Page not found');
-  }
-});
-
-server.listen(3000, () => {
-  console.log('Server is running on http://localhost:3000');
 });
